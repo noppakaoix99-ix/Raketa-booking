@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    :root { 
+      --primary-red: #ff3131; 
+      --dark-bg: #0d0d0d; 
+      --card-bg: #1a1a1a;
+      --input-bg: #2a2a2a;
+      --input-focus: #111111; 
+      --text-bright: #ffffff;
+    }
+    body { background-color: var(--dark-bg); color: var(--text-bright); font-family: 'Segoe UI', sans-serif; }
+    .card { background-color: var(--card-bg); border: 1px solid #444; border-radius: 15px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
+    .header-logo { color: var(--primary-red); font-weight: 900; letter-spacing: 3px; font-size: 2rem; }
+    label { color: var(--text-bright) !important; font-size: 0.9rem; margin-bottom: 8px; font-weight: 500; display: block; }
+    
+    /* Input Styling */
+    .form-control, .form-select { 
+      background-color: var(--input-bg); 
+      border: 1px solid #555; 
+      color: #ffffff !important; 
+      padding: 12px;
+      transition: all 0.2s ease;
+    }
+    .form-control:focus, .form-select:focus { 
+      background-color: var(--input-focus) !important; 
+      border-color: var(--primary-red) !important; 
+      color: #ffffff !important;
+      outline: none;
+      box-shadow: 0 0 0 0.25rem rgba(255, 49, 49, 0.25);
+    }
+
+    /* Gantt Chart Table */
+    .gantt-table { width: 100%; border-collapse: collapse; font-size: 13px; color: var(--text-bright); }
+    .gantt-table th { background-color: #333; color: #ffffff; border: 1px solid #444; padding: 10px 5px; }
+    .gantt-table td { border: 1px solid #444; padding: 12px 5px; text-align: center; }
+    .cell-rented { background-color: var(--primary-red); }
+    .cell-available { background-color: #28a745; }
+
+    .btn-submit { background: linear-gradient(45deg, #ff3131, #a70000); border: none; font-weight: bold; padding: 15px; color: white; text-transform: uppercase; }
+    .status-badge { display: none; background: #4a3500; color: #ffcc00; padding: 12px; border-radius: 8px; text-align: center; margin-bottom: 20px; font-weight: bold; border: 1px solid #ffcc00; }
+    .search-section { background: #222; padding: 20px; border-radius: 10px; margin-bottom: 25px; border-left: 5px solid var(--primary-red); }
+
+    /* Autofill fix */
+    input:-webkit-autofill {
+      -webkit-text-fill-color: white !important;
+      -webkit-box-shadow: 0 0 0px 1000px var(--input-focus) inset !important;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container py-5">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="header-logo">RAKETA</div>
+    <div class="d-flex align-items-center gap-3">
+      <a href="https://docs.google.com/spreadsheets/d/1kvfR7m3IgJZ8qgQg7W9jzu3RJpzPDukNU6BWgCDVscA/edit#gid=0" 
+         target="_blank" class="btn btn-outline-success btn-sm d-flex align-items-center gap-2">
+         <img src="https://upload.wikimedia.org/wikipedia/commons/3/30/Google_Sheets_logo_%282014-2020%29.svg" width="16" height="16">
+         Database
+      </a>
+      <div class="btn-group">
+        <button class="btn btn-outline-light active" id="btn-en" onclick="changeLang('en')">EN</button>
+        <button class="btn btn-outline-light" id="btn-th" onclick="changeLang('th')">TH</button>
+        <button class="btn btn-outline-light" id="btn-ru" onclick="changeLang('ru')">RU</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card p-4 mb-4">
+    <h5 id="lbl-dash-title" class="mb-3">Motorbike Status Summary (14 Days)</h5>
+    <div class="table-responsive">
+      <table class="gantt-table">
+        <thead id="ganttHead"></thead>
+        <tbody id="ganttBody"><tr><td colspan="15">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="search-section">
+    <div class="row g-2">
+      <div class="col-8 col-md-10">
+        <input type="text" id="searchId" class="form-control" placeholder="Search Booking ID...">
+      </div>
+      <div class="col-4 col-md-2">
+        <button id="btn-search-act" class="btn btn-light w-100" onclick="handleSearch()">Search</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card p-4">
+    <div id="updateNotice" class="status-badge">⚠️ UPDATE MODE: CUSTOMER RETURNING VEHICLE</div>
+    <form id="rentalForm">
+      <input type="hidden" name="row" id="rowNum">
+      <div class="row g-3">
+        <div class="col-md-4"><label id="lbl-name">Client Name/Phone</label><input type="text" name="clientName" id="clientName" class="form-control" required></div>
+        <div class="col-md-4"><label id="lbl-passport">Passport Number</label><input type="text" name="passport" id="passport" class="form-control" required></div>
+        <div class="col-md-4"><label id="lbl-bike-id">Bike ID (Plate No.)</label><input type="text" name="bikeId" id="bikeId" class="form-control" required></div>
+        
+        <div class="col-md-4">
+          <label id="lbl-model">Motorbike Model</label>
+          <select name="model" id="modelSelect" class="form-select" required></select>
+        </div>
+        <div class="col-md-4"><label id="lbl-start-mil">Start Mileage</label><input type="number" name="startMileage" id="startMileage" class="form-control"></div>
+        <div class="col-md-4"><label id="lbl-plan-return">Plan to Return Date</label><input type="date" name="planReturn" id="planReturn" class="form-control"></div>
+        
+        <div class="col-md-12"><hr></div>
+        
+        <div class="col-md-6">
+          <label id="lbl-return-mil" class="text-warning fw-bold">Return Mileage (Update on Return)</label>
+          <input type="number" name="returnMileage" id="returnMileage" class="form-control border-warning">
+        </div>
+        <div class="col-md-6">
+          <label id="lbl-act-return">Actual Return Date</label>
+          <div class="form-control bg-dark text-white-50 border-0">Auto-recorded on save</div>
+        </div>
+        
+        <div class="col-md-12"><hr></div>
+        
+        <div class="col-md-4"><label id="lbl-amount">Rental Amount</label><input type="number" name="amount" id="amount" class="form-control"></div>
+        <div class="col-md-4"><label id="lbl-deposit">Deposit</label><input type="number" name="deposit" id="deposit" class="form-control"></div>
+        <div class="col-md-4"><label id="lbl-cost">Bike Value / Cost</label><input type="number" name="bikeCost" id="bikeCost" class="form-control"></div>
+      </div>
+      
+      <button type="submit" class="btn btn-primary w-100 mt-4 btn-submit" id="btn-submit">Confirm & Save Data</button>
+      <button type="button" id="btn-clear" class="btn btn-link w-100 text-white-50 mt-2 text-decoration-none" onclick="resetForm()">Clear Form / New Booking</button>
+    </form>
+  </div>
+</div>
+
+<script>
+  const translations = {
+    en: {
+      dashTitle: "Motorbike Status Summary (14 Days)", searchPlh: "Search Booking ID...", searchBtn: "Search",
+      name: "Client Name/Phone", passport: "Passport Number", bikeId: "Bike ID (Plate No.)",
+      model: "Motorbike Model", startMil: "Start Mileage", planReturn: "Plan to Return Date",
+      returnMil: "Return Mileage (Update on Return)", actReturn: "Actual Return Date",
+      amount: "Rental Amount", deposit: "Deposit", cost: "Bike Value / Cost",
+      submit: "Confirm & Save Data", clear: "Clear Form / New Booking",
+      update: "⚠️ UPDATE MODE: CUSTOMER RETURNING VEHICLE"
+    },
+    th: {
+      dashTitle: "สรุปสถานะรถ (14 วัน)", searchPlh: "ค้นหารหัสการจอง...", searchBtn: "ค้นหา",
+      name: "ชื่อลูกค้า/เบอร์โทร", passport: "หมายเลขพาสปอร์ต", bikeId: "ทะเบียนรถ (Bike ID)",
+      model: "รุ่นรถมอเตอร์ไซค์", startMil: "เลขไมล์เริ่มต้น", planReturn: "วันที่คาดว่าจะคืน",
+      returnMil: "เลขไมล์ตอนคืน (อัปเดตเมื่อคืนรถ)", actReturn: "วันที่คืนรถจริง",
+      amount: "ยอดค่าเช่า", deposit: "เงินมัดจำ", cost: "มูลค่ารถ/ต้นทุน",
+      submit: "ยืนยันและบันทึกข้อมูล", clear: "ล้างฟอร์ม / การจองใหม่",
+      update: "⚠️ โหมดอัปเดต: ลูกค้ากำลังคืนรถ"
+    },
+    ru: {
+      dashTitle: "Статус мотоциклов (14 дней)", searchPlh: "Поиск ID бронирования...", searchBtn: "Поиск",
+      name: "Имя клиента/Телефон", passport: "Номер паспорта", bikeId: "ID Мотоцикла",
+      model: "Модель мотоцикла", startMil: "Начальный пробег", planReturn: "Планируемая дата возврата",
+      returnMil: "Пробег при возврате", actReturn: "Фактическая дата возврата",
+      amount: "Сумма аренды", deposit: "Депозит", cost: "Стоимость байка",
+      submit: "Подтвердить и сохранить", clear: "Очистить форму / Новое бронирование",
+      update: "⚠️ РЕЖИМ ОБНОВЛЕНИЯ: ВОЗВРАТ ТРАНСПОРТА"
+    }
+  };
+
+  function changeLang(lang) {
+    document.querySelectorAll('.btn-group .btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('btn-' + lang).classList.add('active');
+    const t = translations[lang];
+    document.getElementById('lbl-dash-title').innerText = t.dashTitle;
+    document.getElementById('searchId').placeholder = t.searchPlh;
+    document.getElementById('btn-search-act').innerText = t.searchBtn;
+    document.getElementById('lbl-name').innerText = t.name;
+    document.getElementById('lbl-passport').innerText = t.passport;
+    document.getElementById('lbl-bike-id').innerText = t.bikeId;
+    document.getElementById('lbl-model').innerText = t.model;
+    document.getElementById('lbl-start-mil').innerText = t.startMil;
+    document.getElementById('lbl-plan-return').innerText = t.planReturn;
+    document.getElementById('lbl-return-mil').innerText = t.returnMil;
+    document.getElementById('lbl-act-return').innerText = t.actReturn;
+    document.getElementById('lbl-amount').innerText = t.amount;
+    document.getElementById('lbl-deposit').innerText = t.deposit;
+    document.getElementById('lbl-cost').innerText = t.cost;
+    document.getElementById('btn-submit').innerText = t.submit;
+    document.getElementById('btn-clear').innerText = t.clear;
+    document.getElementById('updateNotice').innerText = t.update;
+  }
+
+  function loadDashboard() {
+    google.script.run.withSuccessHandler(res => {
+      document.getElementById('ganttHead').innerHTML = `<tr><th style="min-width:150px">Vehicle</th>${res.headers.map(h => `<th>${h}</th>`).join('')}</tr>`;
+      document.getElementById('ganttBody').innerHTML = res.data.map(row => `<tr><td class="text-start fw-bold">${row.model}</td>${row.days.map(d => `<td class="${d === 'rented' ? 'cell-rented' : 'cell-available'}"></td>`).join('')}</tr>`).join('');
+    }).getGanttChartData();
+  }
+
+  function handleSearch() {
+    const id = document.getElementById('searchId').value;
+    if(!id) return;
+    google.script.run.withSuccessHandler(res => {
+      if(res) {
+        document.getElementById('rowNum').value = res.row;
+        document.getElementById('clientName').value = res.clientName;
+        document.getElementById('passport').value = res.passport;
+        document.getElementById('modelSelect').value = res.model;
+        document.getElementById('startMileage').value = res.startMileage;
+        document.getElementById('bikeId').value = res.bikeId || '';
+        document.getElementById('amount').value = res.amount;
+        document.getElementById('deposit').value = res.deposit;
+        document.getElementById('bikeCost').value = res.bikeCost;
+        if(res.planReturn) {
+          const d = new Date(res.planReturn);
+          if(!isNaN(d)) document.getElementById('planReturn').value = d.toISOString().split('T')[0];
+        }
+        document.getElementById('updateNotice').style.display = 'block';
+      } else { alert("Booking ID not found."); }
+    }).searchBooking(id);
+  }
+
+  document.getElementById('rentalForm').onsubmit = function(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btn-submit');
+    btn.disabled = true;
+    google.script.run.withSuccessHandler(res => {
+      alert(res.includes("SUCCESS") ? "Done!" : "Success ID: " + res);
+      resetForm(); btn.disabled = false; loadDashboard();
+    }).saveBooking(Object.fromEntries(new FormData(this)));
+  };
+
+  function resetForm() { document.getElementById('rentalForm').reset(); document.getElementById('rowNum').value = ''; document.getElementById('updateNotice').style.display = 'none'; }
+
+  window.onload = () => {
+    google.script.run.withSuccessHandler(list => {
+      document.getElementById('modelSelect').innerHTML = '<option value="">-- Select --</option>' + list.map(m => `<option value="${m}">${m}</option>`).join('');
+    }).getVehicleModels();
+    loadDashboard();
+  };
+</script>
+</body>
+</html>
